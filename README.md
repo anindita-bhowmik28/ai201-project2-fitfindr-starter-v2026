@@ -80,24 +80,13 @@
 
 ## Planning Loop
 
-<!-- Your branch rule, stated as a rule — the condition AND both paths — plus
-     the file and function that holds it.
-
-     Like this:
-       "If search_listings returns an empty list, put a message in the session
-        and stop. Otherwise take the first result and go to suggest_outfit."
-        — agent.py::run_agent
-
-     The grader checks your code against what you claim here, so the file and
-     function have to be real. -->
-
-**Branch rule:**
+**Branch rule:** If `search_listings` returns an empty list, store a helpful message in the session telling the user what they can change in their search, and stop the agent without calling `suggest_outfit`. Otherwise, select the first matching listing, store it in the session, and continue to `suggest_outfit`.
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** The query is parsed using string matching and regular expressions to extract the item description, requested size, and maximum price.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** The original query is stored first, followed by the parsed description, size, and maximum price. The results from `search_listings` are stored in `search_results`, the first matching item is stored in `selected_item`, the result from `suggest_outfit` is stored in `outfit_suggestion`, and the final result from `create_fit_card` is stored in `fit_card`. If the search returns no matches, an explanation is stored in `error` and the agent stops.
 
 ---
 
