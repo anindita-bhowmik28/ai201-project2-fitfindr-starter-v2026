@@ -13,6 +13,8 @@ Build and test your three tools in `tools.py` first. Then come here.
     python agent.py          runs both example paths below
 """
 
+import re
+
 import config
 import trace
 from tools import search_listings, suggest_outfit, create_fit_card
@@ -49,66 +51,106 @@ def new_session(query: str, wardrobe: dict) -> dict:
 
 # ── planning loop ─────────────────────────────────────────────────────────────
 
+def _parse_query(query: str) -> dict:
+    """Extract the main description, requested size, and max price from a user query."""
+    text = query.strip()
+    if not text:
+        return {"description": "", "size": None, "max_price": None}
+
+    price_match = re.search(r"(?:under|below|up\s+to|budget|max(?:imum)?|\$)\s*\$?(\d+(?:\.\d+)?)", text, flags=re.I)
+    max_price = float(price_match.group(1)) if price_match else None
+
+    size_match = re.search(
+        r"\bsize\s+([A-Za-z0-9/ ]+?)(?=(?:\s*(?:under|below|budget|up\s+to|\$)|$))",
+        text,
+        flags=re.I,
+    )
+    if size_match is None:
+        size_match = re.search(
+            r"\bin\s+size\s+([A-Za-z0-9/ ]+?)(?=(?:\s*(?:under|below|budget|up\s+to|\$)|$))",
+            text,
+            flags=re.I,
+        )
+    size = size_match.group(1).strip() if size_match else None
+    if size is None:
+        size_match = re.search(r"\b(?:us|uk)\s*(\d+(?:\.\d+)?)\b", text, flags=re.I)
+        size = size_match.group(0).upper() if size_match else None
+
+    description = text
+    if price_match:
+        description = description[:price_match.start()] + description[price_match.end():]
+    if size_match:
+        description = description[:size_match.start()] + description[size_match.end():]
+    description = re.sub(r"\s+", " ", description).strip(" ,.-")
+    return {"description": description, "size": size, "max_price": max_price}
+
+
 def run_agent(query: str, wardrobe: dict) -> dict:
-    """
-    Run the loop once and return the finished session.
-
-    Args:
-        query:    what the user asked for, in plain language
-                  (e.g. "vintage graphic tee under $30, size M").
-        wardrobe: a wardrobe dict — get_example_wardrobe() or
-                  get_empty_wardrobe() from utils/data_loader.py.
-
-    Returns:
-        The session dict. **Check session["error"] first** — if it isn't None,
-        the run ended early and the later fields will still be None.
-
-    ─────────────────────────────────────────────────────────────────────────
-    TODO — build this, following the branch rule you wrote in Milestone 2.
-
-      1. Start a session with new_session().
-
-      2. Count the times round the loop, and call trace.check_iterations(count)
-         on each one before you go again. It raises when the count passes
-         MAX_ITERATIONS in config.py — see trace.py.
-
-      3. Parse the query into a description, a size, and a max_price. Regex,
-         string splitting, or asking the model are all fine — say which you
-         chose in your README. Put the result in session["parsed"].
-
-      4. Call search_listings() with what you parsed.
-         Put the results in session["search_results"].
-
-         ⚠️ THIS IS THE BRANCH. If nothing came back:
-              - put a message in session["error"] saying what the user could
-                change — "No results" is not that message
-              - return the session
-              - do NOT call suggest_outfit with nothing
-
-      5. Choose an item — the first result is fine. Put it in
-         session["selected_item"].
-
-      6. Call suggest_outfit() with the selected item and the wardrobe.
-         Put the result in session["outfit_suggestion"].
-
-      7. Call create_fit_card() with the outfit and the item.
-         Put the result in session["fit_card"].
-
-      8. Return the session.
-
-    ─────────────────────────────────────────────────────────────────────────
-    IN UNIT 4 you come back and add two things:
-
-      • Trace calls. One per step. `trace.step("search_listings", inputs=...,
-        returned=...)` — see trace.py. Your README needs the output.
-
-      • A handler for ModelUnavailable, so a bad key produces a message rather
-        than a stack trace. The import is already at the top of this file.
-    """
+    """Run the loop once and return the finished session."""
     session = new_session(query, wardrobe)
+    trace.start_trace()
 
-    # TODO: delete these two lines and build the loop.
-    session["error"] = "The planning loop isn't built yet — see the TODO in agent.py."
+    for count in range(1, config.MAX_ITERATIONS + 2):
+        trace.check_iterations(count)
+
+        parsed = _parse_query(query)
+        session["parsed"] = parsed
+        description = parsed.get("description") or query
+        size = parsed.get("size")
+        max_price = parsed.get("max_price")
+
+        try:
+            results = search_listings(description, size=size, max_price=max_price)
+            session["search_results"] = results
+            trace.step(
+                "search_listings",
+                inputs={"description": description, "size": size, "max_price": max_price},
+                returned=results,
+            )
+        except Exception as exc:  # noqa: BLE001
+            session["error"] = f"Search failed: {exc}"
+            return session
+
+        if not results:
+            session["error"] = (
+                "No matching listings found. Try a different item description, size, or max price."
+            )
+            trace.step("empty search branch", note="stopping because no matching listings were found")
+            return session
+
+        selected_item = results[0]
+        session["selected_item"] = selected_item
+        trace.step(
+            "select first result",
+            inputs={"result_count": len(results)},
+            returned={"id": selected_item.get("id"), "title": selected_item.get("title")},
+        )
+
+        try:
+            outfit = suggest_outfit(selected_item, wardrobe)
+            session["outfit_suggestion"] = outfit
+            trace.step("suggest_outfit", inputs={"item": selected_item.get("title")}, returned=outfit)
+        except ModelUnavailable as exc:
+            session["error"] = str(exc)
+            return session
+        except Exception as exc:  # noqa: BLE001
+            session["error"] = f"Outfit generation failed: {exc}"
+            return session
+
+        try:
+            fit_card = create_fit_card(outfit, selected_item)
+            session["fit_card"] = fit_card
+            trace.step("create_fit_card", inputs={"item": selected_item.get("title")}, returned=fit_card)
+        except ModelUnavailable as exc:
+            session["error"] = str(exc)
+            return session
+        except Exception as exc:  # noqa: BLE001
+            session["error"] = f"Fit card generation failed: {exc}"
+            return session
+
+        return session
+
+    session["error"] = "The loop exceeded the step budget. Check the branch logic."
     return session
 
 
