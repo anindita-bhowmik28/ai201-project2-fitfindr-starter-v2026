@@ -291,4 +291,43 @@ I would write criterion 4 more tightly in the next unit by requiring the fit car
 
 ---
 
-📖 **How to run this project: [RUNNING.md](RUNNING.md)**
+## How to run this project
+
+### 1) Set up the environment
+
+```bash
+cd /path/to/ai201-project2-fitfindr-starter-v2026
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+cp .env.example .env
+# paste your GEMINI_API_KEY into .env
+python test.py
+```
+
+You are ready when `python test.py` passes.
+
+### 2) Run the app
+
+```bash
+python app.py fields
+python app.py listings --full -n 6
+python app.py examples
+python app.py ask 'vintage graphic tee under $30'
+python app.py ask 'designer ballgown size XXS under $5'
+```
+
+### 3) Run the evaluation log
+
+```bash
+python run_eval.py --label before
+python run_eval.py --label after
+```
+
+### 4) Optional trace output
+
+```bash
+python app.py ask 'vintage graphic tee under $30' --trace
+```
+
+This project is also documented in [RUNNING.md](RUNNING.md), but the commands above are the direct setup and execution flow for this repo.
