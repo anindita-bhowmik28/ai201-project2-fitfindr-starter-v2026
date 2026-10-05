@@ -64,17 +64,17 @@
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Takes the selected listing and the user's wardrobe and suggests an outfit that combines the new item with clothing the user already owns.
+- **Inputs:** `new_item` (dict) — the listing selected from the search results; `wardrobe` (list) — a list of dictionaries representing clothing items the user already owns.
+- **Returns:** A string containing an outfit suggestion that explains how the selected item can be styled with items from the user's wardrobe.
+- **When it has nothing:** If the wardrobe is empty, returns general styling advice for the selected item instead of failing.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Creates a short, post-ready caption for the outfit and the selected new clothing item.
+- **Inputs:** `outfit` (str) — the outfit suggestion produced by `suggest_outfit`; `new_item` (dict) — the selected clothing listing.
+- **Returns:** A string containing a short fit-card caption describing the outfit and new item.
+- **When it has nothing:** If the required outfit or new item is missing, it does not create a normal fit card and returns an appropriate empty/error result according to the tool implementation.
 
 ---
 
