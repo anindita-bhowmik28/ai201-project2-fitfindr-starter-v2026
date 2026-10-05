@@ -78,11 +78,59 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    listings = load_listings()
+    description_words = set(description.lower().split())
+    scored_matches = []
 
+    for listing in listings:
+        # Filter by maximum price when one was provided.
+        if max_price is not None and listing["price"] > max_price:
+            continue
+
+        # Filter by size when one was provided.
+        if size is not None:
+            requested_size = size.strip().lower()
+            listing_sizes = (
+                listing["size"]
+                .lower()
+                .replace("(", " ")
+                .replace(")", " ")
+                .replace("/", " ")
+                .split()
+            )
+
+            if requested_size not in listing_sizes:
+                continue
+
+        # Build searchable text from useful listing fields.
+        searchable_text = " ".join([
+            listing["title"],
+            listing["description"],
+            listing["category"],
+            " ".join(listing["style_tags"]),
+            " ".join(listing["colors"]),
+            listing["brand"] or "",
+        ]).lower()
+
+        # Count how many description words appear in the listing.
+        score = sum(
+            1 for word in description_words
+            if word in searchable_text
+        )
+
+        if score > 0:
+            scored_matches.append((score, listing))
+
+    # Best keyword matches should appear first.
+    scored_matches.sort(key=lambda pair: pair[0], reverse=True)
+
+    return [
+        listing
+        for score, listing in scored_matches[:config.SEARCH_RESULT_LIMIT]
+    ]
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
+
 
 def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     """
