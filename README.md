@@ -177,53 +177,48 @@ low-key win I was looking for.
 
 ## Run Log — Before
 
-This log was produced by `run_eval.py::main` in `results/run_2026-10-05_0229_before.md` with caching off, five real tries per scenario.
+This log was produced by `run_eval.py::main` in
+`results/run_2026-10-12_0145_part2-before.md` with caching off. It contains
+five real tries for each of the five scenarios and records 40 model calls.
 
 | Criterion                          | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 | ---------------------------------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
-| 1. matching query completes        | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 2. impossible query stops early    | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 3. state item transfer             | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 4. fit card mentions selected item | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 5. price ceiling respected         | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 1. matching query completes        | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 2. impossible query stops early    | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 3. state item transfer             | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 4. fit card mentions selected item | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 5. price ceiling respected         | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
 
-**Real output from one run**, naming the file and function that produced it:
-
-- File: `results/run_2026-10-05_0229_before.md`
-- Function: `run_eval.py::main`
+**Real output from one try per criterion**
 
 ```text
-### matching query completes
-- Query: `vintage graphic tee under $30`
-- selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
-- search_results: 10
+1. matching query completes
+selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+fit_card: Pulled this pink and purple butterfly baby tee from the thrift and
+honestly didn't want to list it. Grab this Y2K absolute steal on my Depop right
+now for just $18 before I change my mind.
 
-Fit card:
-Nothing beats the pastel butterfly print on this little Y2K baby tee. Styled it two ways because I couldn't decide between full-on baggy denim streetwear or mixing it up with cargos and boots—which vibe are we leaning into today? 🦋✨
+2. impossible query stops early
+stopped early: yes — No listings match your description, size, and budget.
+Try a different item, a size that exists in the data, or a higher price ceiling.
+selected_item: (none)
+search_results: 0
 
-### impossible query stops early
-- stopped early: yes — No matching listings found. Try a different item description, size, or max price.
-- selected_item: (none)
-- search_results: 0
+3. state item transfer
+selected_item output: 90s Track Jacket — Navy/White Stripe [lst_004]
+suggest_outfit input: new_item_id='lst_004',
+new_item_title='90s Track Jacket — Navy/White Stripe'
 
-### state item transfer
-- selected_item: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
-- search_results: 10
+4. fit card mentions selected item
+selected_item: 90s Silk Slip Dress — Floral, Midi Length ($30.0, depop)
+fit_card: Toughened up this floral 90s silk slip dress with chunky boots and a
+denim jacket for that ultimate alt-rock vibe. Snagged it on Depop for just $30
+and I am never taking it off.
 
-Fit card:
-Can’t decide if I’m channeling off-duty supermodel or just running errands I’ll definitely be late for, but this $45 thrifted 90s track jacket makes the whole fit work either way. Seriously the easiest piece to throw on over a tank and baggy denim (or trousers if I'm feeling fancy). ✨
-
-### fit card mentions selected item
-- selected_item: 90s Silk Slip Dress — Floral, Midi Length ($30.0, depop)
-- search_results: 10
-
-Fit card:
-Pulled this dreamy floral slip from the archives and I'm obsessed with how versatile it is—throw it on with an oversized crewneck and boots for peak 90s grunge, or dress it down with a denim jacket and sneakers. Grabbed this little beauty on Depop for just $30 and honestly, nothing beats vintage silk.
-
-### price ceiling respected
-- Query: `platform sneakers size 8 under $60`
-- selected_item: Platform Sneakers — White Chunky Sole ($48.0, poshmark)
-- search_results: 1
+5. price ceiling respected
+query: platform sneakers size 8 under $60
+selected_item: Platform Sneakers — White Chunky Sole ($48.0, poshmark)
+search_results: 1; every result price was at or below $60
 ```
 
 ---
