@@ -66,6 +66,11 @@ SEARCH_RESULT_LIMIT = 10
 
 MODEL = os.getenv("AI201_MODEL", "gemini-3.5-flash-lite")
 
+# A failed provider request must return control to the agent's ModelUnavailable
+# handler instead of holding the CLI open indefinitely. The SDK expects
+# milliseconds here.
+MODEL_TIMEOUT_MS = 30_000
+
 
 # ─── Rate limiting and quota guards ──────────────────────────────────────────
 # You should not need to touch these.

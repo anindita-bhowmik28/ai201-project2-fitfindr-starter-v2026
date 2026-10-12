@@ -253,7 +253,10 @@ def _get_client():
                 "Copy .env.example to .env and paste your key in, then try "
                 "again. `python test.py` will confirm it's working."
             )
-        _client = genai.Client(api_key=key)
+        _client = genai.Client(
+            api_key=key,
+            http_options={"timeout": config.MODEL_TIMEOUT_MS},
+        )
     return _client
 
 
