@@ -160,6 +160,7 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         trace.step(
             "suggest_outfit",
             inputs={
+                "new_item_id": session["selected_item"].get("id"),
                 "new_item_title": session["selected_item"].get("title"),
                 "wardrobe_items": len(wardrobe.get("items", [])),
             },
