@@ -346,6 +346,37 @@ tries each, and caching off.
 | 4. fit card mentions selected item | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
 | 5. price ceiling respected         | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
 
+**Real after-run output from one try per criterion**
+
+```text
+1. matching query completes
+selected_item: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+fit_card: Channeling major 2000s mall-rat energy with this Y2K Baby Tee —
+Butterfly Print, and I'm obsessed. Grabbed it for $18 over on Depop.
+
+2. impossible query stops early
+stopped early: yes — No listings match your description, size, and budget.
+Try a different item, a size that exists in the data, or a higher price ceiling.
+selected_item: (none)
+search_results: 0
+
+3. state item transfer
+selected_item output: 90s Track Jacket — Navy/White Stripe [lst_004]
+suggest_outfit input: new_item_id='lst_004',
+new_item_title='90s Track Jacket — Navy/White Stripe'
+
+4. fit card mentions selected item
+selected_item: 90s Silk Slip Dress — Floral, Midi Length ($30.0, depop)
+fit_card: Can’t decide if I want to channel 90s grunge or just be super cozy
+today, so honestly doing both with this 90s Silk Slip Dress — Floral, Midi
+Length. Snagged it for $30 on depop and it’s about to be my whole personality.
+
+5. price ceiling respected
+query: platform sneakers size 8 under $60
+selected_item: Platform Sneakers — White Chunky Sole ($48.0, poshmark)
+search_results: 1; every result price was at or below $60
+```
+
 **Did it help?** Yes. The original criterion verdict stayed MET (5/5), but the
 stricter exact-title measurement improved from 0 of 5 before to 5 of 5 after.
 For example, after try 1 says: “this 90s Silk Slip Dress — Floral, Midi Length.”
