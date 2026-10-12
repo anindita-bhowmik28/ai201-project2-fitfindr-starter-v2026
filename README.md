@@ -317,23 +317,35 @@ The empty-search trace showed the branch and early stop:
 
 ## The Improvement
 
-**What I changed:** I tightened the `create_fit_card` prompt to explicitly require the caption to name the selected item, mention the price, and mention the platform, while keeping the tone casual and not catalog-like.
+**What I changed:** I made one system improvement: the `create_fit_card`
+prompt now requires the exact selected-item title verbatim. The price,
+platform, tone, and two-sentence constraints stayed the same.
 
-**Which failure it was meant to fix:** This was meant to make the fit-card wording more explicitly anchored to the selected item, not to rescue a missed criterion; the original run already met the acceptance test, but I wanted the model output to be more consistently item-specific.
+**Why I picked it:** No original criterion missed, but the diagnosis found that
+criterion 4 allowed subjective “recognizable” descriptions. In the before run,
+all five captions were recognizable, but zero of five contained the exact title
+`90s Silk Slip Dress — Floral, Midi Length`.
 
 ### Run Log — After
 
-This log was produced by `run_eval.py::main` in `results/run_2026-10-05_0232_after.md`.
+This log was produced by `run_eval.py::main` in
+`results/run_2026-10-12_0225_part2-after.md`, using the same scenarios, five
+tries each, and caching off.
 
 | Criterion                          | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 | ---------------------------------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
-| 1. matching query completes        | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 2. impossible query stops early    | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 3. state item transfer             | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 4. fit card mentions selected item | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
-| 5. price ceiling respected         | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 1. matching query completes        | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 2. impossible query stops early    | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 3. state item transfer             | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 4. fit card mentions selected item | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
+| 5. price ceiling respected         | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET (5/5) |
 
-**Did it help, and how do I know:** It did not change the pass/fail verdicts because the original system already met every criterion. The evidence is that the after-run table still produced five PASSes in every row, and the improvement was a prompt tightening rather than a scoring change. It made the item naming more explicit, but the measurable outcomes were unchanged.
+**Did it help?** Yes. The original criterion verdict stayed MET (5/5), but the
+stricter exact-title measurement improved from 0 of 5 before to 5 of 5 after.
+For example, after try 1 says: “this 90s Silk Slip Dress — Floral, Midi Length.”
+One unrelated fit-card request in the state-transfer scenario timed out; the
+new required timeout handler stopped cleanly, and criterion 3 still passed
+because `lst_004` had already reached `suggest_outfit` correctly.
 
 ---
 
