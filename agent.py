@@ -49,109 +49,131 @@ def new_session(query: str, wardrobe: dict) -> dict:
     }
 
 
-# ── planning loop ─────────────────────────────────────────────────────────────
-
 def _parse_query(query: str) -> dict:
-    """Extract the main description, requested size, and max price from a user query."""
-    text = query.strip()
+    """Extract a description, size, and price limit from a natural-language query."""
+    text = (query or "").strip()
     if not text:
         return {"description": "", "size": None, "max_price": None}
 
-    price_match = re.search(r"(?:under|below|up\s+to|budget|max(?:imum)?|\$)\s*\$?(\d+(?:\.\d+)?)", text, flags=re.I)
-    max_price = float(price_match.group(1)) if price_match else None
-
-    size_match = re.search(
-        r"\bsize\s+([A-Za-z0-9/ ]+?)(?=(?:\s*(?:under|below|budget|up\s+to|\$)|$))",
-        text,
-        flags=re.I,
-    )
-    if size_match is None:
-        size_match = re.search(
-            r"\bin\s+size\s+([A-Za-z0-9/ ]+?)(?=(?:\s*(?:under|below|budget|up\s+to|\$)|$))",
-            text,
-            flags=re.I,
-        )
-    size = size_match.group(1).strip() if size_match else None
-    if size is None:
-        size_match = re.search(r"\b(?:us|uk)\s*(\d+(?:\.\d+)?)\b", text, flags=re.I)
-        size = size_match.group(0).upper() if size_match else None
-
-    description = text
+    raw = text
+    max_price = None
+    price_match = re.search(r"under\s+\$?\s*(\d+(?:\.\d+)?)", text, flags=re.I)
     if price_match:
-        description = description[:price_match.start()] + description[price_match.end():]
+        max_price = float(price_match.group(1))
+        text = text[: price_match.start()] + " " + text[price_match.end():]
+
+    size = None
+    size_match = re.search(
+        r"\b(?:size|in size|sz)\s*([a-z0-9]+)", text, flags=re.I)
     if size_match:
-        description = description[:size_match.start()] + description[size_match.end():]
+        size = size_match.group(1).upper()
+        text = text[: size_match.start()] + " " + text[size_match.end():]
+
+    description = re.sub(r"\s+", " ", text).strip(" ,.-")
+    description = re.sub(r"\bunder\b", " ", description, flags=re.I)
+    description = re.sub(r"\b(?:in|on|with)\b", " ", description, flags=re.I)
     description = re.sub(r"\s+", " ", description).strip(" ,.-")
     return {"description": description, "size": size, "max_price": max_price}
 
 
-def run_agent(query: str, wardrobe: dict) -> dict:
-    """Run the loop once and return the finished session."""
-    session = new_session(query, wardrobe)
-    trace.start_trace()
+# ── planning loop ─────────────────────────────────────────────────────────────
 
-    for count in range(1, config.MAX_ITERATIONS + 2):
+def run_agent(query: str, wardrobe: dict) -> dict:
+    """
+    Run the loop once and return the finished session.
+
+    Args:
+        query:    what the user asked for, in plain language
+                  (e.g. "vintage graphic tee under $30, size M").
+        wardrobe: a wardrobe dict — get_example_wardrobe() or
+                  get_empty_wardrobe() from utils/data_loader.py.
+
+    Returns:
+        The session dict. **Check session["error"] first** — if it isn't None,
+        the run ended early and the later fields will still be None.
+    """
+    session = new_session(query, wardrobe)
+    count = 0
+
+    while True:
+        count += 1
         trace.check_iterations(count)
 
-        parsed = _parse_query(query)
-        session["parsed"] = parsed
-        description = parsed.get("description") or query
-        size = parsed.get("size")
-        max_price = parsed.get("max_price")
+        trace.step("new_session", inputs={"query": query}, returned={
+                   "parsed": session["parsed"]})
+        session["parsed"] = _parse_query(query)
+        trace.step("parse_query", inputs={
+                   "query": query}, returned=session["parsed"])
 
-        try:
-            results = search_listings(description, size=size, max_price=max_price)
-            session["search_results"] = results
-            trace.step(
-                "search_listings",
-                inputs={"description": description, "size": size, "max_price": max_price},
-                returned=results,
-            )
-        except Exception as exc:  # noqa: BLE001
-            session["error"] = f"Search failed: {exc}"
-            return session
-
-        if not results:
-            session["error"] = (
-                "No matching listings found. Try a different item description, size, or max price."
-            )
-            trace.step("empty search branch", note="stopping because no matching listings were found")
-            return session
-
-        selected_item = results[0]
-        session["selected_item"] = selected_item
+        session["search_results"] = search_listings(
+            session["parsed"]["description"],
+            session["parsed"]["size"],
+            session["parsed"]["max_price"],
+        )
         trace.step(
-            "select first result",
-            inputs={"result_count": len(results)},
-            returned={"id": selected_item.get("id"), "title": selected_item.get("title")},
+            "search_listings",
+            inputs={
+                "description": session["parsed"]["description"],
+                "size": session["parsed"]["size"],
+                "max_price": session["parsed"]["max_price"],
+            },
+            returned=session["search_results"],
+        )
+
+        if not session["search_results"]:
+            session["error"] = (
+                "No listings match your description, size, and budget. Try a different item, "
+                "a size that exists in the data, or a higher price ceiling."
+            )
+            trace.step(
+                "branch: empty-search",
+                inputs={"parsed": session["parsed"]},
+                returned=session["error"],
+                note="stop: empty results",
+            )
+            return session
+
+        session["selected_item"] = session["search_results"][0]
+        trace.step(
+            "selected_item",
+            inputs={"first_result": session["selected_item"]},
+            returned=session["selected_item"],
         )
 
         try:
-            outfit = suggest_outfit(selected_item, wardrobe)
-            session["outfit_suggestion"] = outfit
-            trace.step("suggest_outfit", inputs={"item": selected_item.get("title")}, returned=outfit)
-        except ModelUnavailable as exc:
-            session["error"] = str(exc)
-            return session
-        except Exception as exc:  # noqa: BLE001
-            session["error"] = f"Outfit generation failed: {exc}"
-            return session
+            session["outfit_suggestion"] = suggest_outfit(
+                session["selected_item"], wardrobe)
+            trace.step(
+                "suggest_outfit",
+                inputs={
+                    "title": session["selected_item"].get("title"),
+                    "wardrobe_items": len(wardrobe.get("items", [])),
+                },
+                returned=session["outfit_suggestion"],
+            )
 
-        try:
-            fit_card = create_fit_card(outfit, selected_item)
-            session["fit_card"] = fit_card
-            trace.step("create_fit_card", inputs={"item": selected_item.get("title")}, returned=fit_card)
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"], session["selected_item"])
+            trace.step(
+                "create_fit_card",
+                inputs={
+                    "item": session["selected_item"].get("title"),
+                    "outfit": session["outfit_suggestion"],
+                },
+                returned=session["fit_card"],
+            )
         except ModelUnavailable as exc:
             session["error"] = str(exc)
-            return session
-        except Exception as exc:  # noqa: BLE001
-            session["error"] = f"Fit card generation failed: {exc}"
+            trace.step(
+                "ModelUnavailable",
+                inputs={
+                    "selected_item": session["selected_item"].get("title")},
+                returned=session["error"],
+                note="stop: model unavailable",
+            )
             return session
 
         return session
-
-    session["error"] = "The loop exceeded the step budget. Check the branch logic."
-    return session
 
 
 # ── running it directly ───────────────────────────────────────────────────────
@@ -159,11 +181,13 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 def _show(session: dict) -> None:
     if session["error"]:
         print(f"  stopped: {session['error']}")
-        print(f"  fit_card is {session['fit_card']!r} — it should still be None here")
+        print(
+            f"  fit_card is {session['fit_card']!r} — it should still be None here")
         return
 
     item = session["selected_item"] or {}
-    print(f"  found:    {item.get('title')} — ${item.get('price')} on {item.get('platform')}")
+    print(
+        f"  found:    {item.get('title')} — ${item.get('price')} on {item.get('platform')}")
     print(f"  outfit:   {session['outfit_suggestion']}")
     print(f"  fit card: {session['fit_card']}")
 

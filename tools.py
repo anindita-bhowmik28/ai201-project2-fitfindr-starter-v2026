@@ -10,8 +10,8 @@ can't tell which layer is lying to you.
     suggest_outfit(new_item, wardrobe)             → str
     create_fit_card(outfit, new_item)              → str
 
-All three are stubs right now. They run and they do nothing — that's the
-starting position and it's deliberate.
+All three tools are implemented below and can be tested independently before
+running the complete planning loop.
 
 ⚠️ Before you write any of them, fill in the **Tool Inventory** section of your
 README (Milestone 2). Four lines per tool: what it does, each input with its
@@ -102,7 +102,8 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     item_platform = new_item.get("platform", "the shop")
     item_color = ", ".join(new_item.get("colors", [])) or "neutral"
 
-    wardrobe_items = wardrobe.get("items", []) if isinstance(wardrobe, dict) else []
+    wardrobe_items = wardrobe.get(
+        "items", []) if isinstance(wardrobe, dict) else []
     if not wardrobe_items:
         prompt = (
             f"A shopper found this item: {item_title} ({item_price} on {item_platform}, colors: {item_color}). "

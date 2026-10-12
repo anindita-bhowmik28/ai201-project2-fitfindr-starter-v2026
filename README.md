@@ -13,8 +13,8 @@
 > python app.py ask 'vintage graphic tee under $30'
 > ```
 >
-> All three tools are stubs, so that last command will do nothing useful yet.
-> That's the starting position.
+> The three tools and planning loop are implemented, so the last command runs
+> the complete FitFindr workflow.
 >
 > **The rest of this file is your submission.** Fill it in as you go.
 
@@ -39,7 +39,11 @@
 
 ## What This Does
 
-<!-- Three or four sentences: what a user asks for, and what they get back. -->
+FitFindr helps a shopper find a secondhand clothing item without searching several
+marketplaces manually. The user describes the item, size, and maximum price in a
+plain-language query. FitFindr searches the local listings, selects a match, and
+uses the shopper's saved wardrobe to suggest outfits. It then returns a short,
+post-ready fit-card caption for the selected item and outfit.
 
 ---
 
@@ -58,14 +62,14 @@
 ### `search_listings`
 
 - **What it does:** Searches the available clothing listings for items that match the user's description, requested size, and maximum price.
-- **Inputs:** `description` (str) — describes the item the user wants; `size` (str) — the requested clothing size; `max_price` (float) — the highest price the user is willing to pay.
+- **Inputs:** `description` (str) — describes the item the user wants; `size` (str or None) — the requested clothing size, if provided; `max_price` (float or None) — the highest price the user is willing to pay, if provided.
 - **Returns:** A list of matching listing dictionaries. Each listing contains information such as the item's id, title, description, category, style tags, size, condition, price, colors, brand, and platform.
 - **When it has nothing:** Returns an empty list `[]` when no listings match the user's search requirements.
 
 ### `suggest_outfit`
 
 - **What it does:** Takes the selected listing and the user's wardrobe and suggests an outfit that combines the new item with clothing the user already owns.
-- **Inputs:** `new_item` (dict) — the listing selected from the search results; `wardrobe` (list) — a list of dictionaries representing clothing items the user already owns.
+- **Inputs:** `new_item` (dict) — the listing selected from the search results; `wardrobe` (dict) — a dictionary whose `items` list contains the clothing the user already owns.
 - **Returns:** A string containing an outfit suggestion that explains how the selected item can be styled with items from the user's wardrobe.
 - **When it has nothing:** If the wardrobe is empty, returns general styling advice for the selected item instead of failing.
 
@@ -74,7 +78,7 @@
 - **What it does:** Creates a short, post-ready caption for the outfit and the selected new clothing item.
 - **Inputs:** `outfit` (str) — the outfit suggestion produced by `suggest_outfit`; `new_item` (dict) — the selected clothing listing.
 - **Returns:** A string containing a short fit-card caption describing the outfit and new item.
-- **When it has nothing:** If the required outfit or new item is missing, it does not create a normal fit card and returns an appropriate empty/error result according to the tool implementation.
+- **When it has nothing:** If `outfit` is an empty string, returns a deterministic caption naming the selected item, price, and platform instead of calling the model. The planning loop never calls this tool without a selected `new_item`.
 
 ---
 
@@ -99,25 +103,57 @@
 
 **One full query**
 
-```
-$ python app.py ask '...'
+```text
+$ python app.py ask 'vintage graphic tee under $30, size M'
+
+Found: Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+Outfit: **Outfit 1: Casual Y2K Streetwear**
+Pair the butterfly baby tee with the baggy straight-leg dark wash jeans and
+chunky white sneakers for an effortless, nostalgic off-duty look. Layer the
+black cropped zip hoodie on top for extra texture and a cool contrast against
+the pastel print.
+
+**Outfit 2: Elevated Retro Prep**
+Style the baby tee tucked into the wide-leg khaki trousers, finished off with
+black combat boots to add an edgy contrast to the sweet butterfly graphic.
+Throw the vintage black denim jacket over your shoulders to tie the whole
+retro-grunge aesthetic together.
+
+Fit card: Scored this cute little pink and purple butterfly baby tee for just
+$18 on Depop and honestly haven't taken it off since. Paired it with baggy
+denim and chunky sneakers for the ultimate low-effort Y2K street fit.
 
 ```
 
 **The three tools, tested one at a time**
 
-```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
+```text
+$ python -c "from tools import search_listings; r=search_listings('vintage graphic tee', 'M', 30); print(len(r), r[0]['title'], r[0]['price'], r[0]['platform'])"
+8 Y2K Baby Tee — Butterfly Print 18.0 depop
 
 ```
 
-```
-$ python -c "from tools import suggest_outfit; ..."
+```text
+$ python -c "from tools import suggest_outfit; from utils.data_loader import load_listings,get_example_wardrobe; item=next(x for x in load_listings() if x['id']=='lst_002'); print(suggest_outfit(item,get_example_wardrobe()))"
+**Outfit 1: Casual Y2K Streetwear**
+Pair the butterfly baby tee with the baggy straight-leg dark wash jeans and
+chunky white sneakers for an effortless, nostalgic off-duty look. Layer the
+black cropped zip hoodie on top for extra texture and a cool contrast against
+the pastel print.
+
+**Outfit 2: Elevated Retro Prep**
+Style the baby tee tucked into the wide-leg khaki trousers, finished off with
+black combat boots to add an edgy contrast to the sweet butterfly graphic.
+Throw the vintage black denim jacket over your shoulders to tie the whole
+retro-grunge aesthetic together.
 
 ```
 
-```
-$ python -c "from tools import create_fit_card; ..."
+```text
+$ python -c "from tools import create_fit_card; print(create_fit_card('', {'title':'Y2K Baby Tee — Butterfly Print','price':18.0,'platform':'depop'}))"
+Found Y2K Baby Tee — Butterfly Print for $18.0 on depop — exactly the kind of
+low-key win I was looking for.
 
 ```
 
@@ -143,13 +179,13 @@ $ python -c "from tools import create_fit_card; ..."
 
 This log was produced by `run_eval.py::main` in `results/run_2026-10-05_0229_before.md` with caching off, five real tries per scenario.
 
-| Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
-| --------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
-| 1. matching query completes | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 2. impossible query stops early | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 3. state item transfer | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 4. fit card mentions selected item | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 5. price ceiling respected | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
+| Criterion                          | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
+| ---------------------------------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
+| 1. matching query completes        | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 2. impossible query stops early    | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 3. state item transfer             | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 4. fit card mentions selected item | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 5. price ceiling respected         | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
 
 **Real output from one run**, naming the file and function that produced it:
 
@@ -163,38 +199,27 @@ This log was produced by `run_eval.py::main` in `results/run_2026-10-05_0229_bef
 - search_results: 10
 
 Fit card:
-```
 Nothing beats the pastel butterfly print on this little Y2K baby tee. Styled it two ways because I couldn't decide between full-on baggy denim streetwear or mixing it up with cargos and boots—which vibe are we leaning into today? 🦋✨
-```
 
-```text
 ### impossible query stops early
 - stopped early: yes — No matching listings found. Try a different item description, size, or max price.
 - selected_item: (none)
 - search_results: 0
-```
 
-```text
 ### state item transfer
 - selected_item: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
 - search_results: 10
 
 Fit card:
-```
 Can’t decide if I’m channeling off-duty supermodel or just running errands I’ll definitely be late for, but this $45 thrifted 90s track jacket makes the whole fit work either way. Seriously the easiest piece to throw on over a tank and baggy denim (or trousers if I'm feeling fancy). ✨
-```
 
-```text
 ### fit card mentions selected item
 - selected_item: 90s Silk Slip Dress — Floral, Midi Length ($30.0, depop)
 - search_results: 10
 
 Fit card:
-```
 Pulled this dreamy floral slip from the archives and I'm obsessed with how versatile it is—throw it on with an oversized crewneck and boots for peak 90s grunge, or dress it down with a denim jacket and sneakers. Grabbed this little beauty on Depop for just $30 and honestly, nothing beats vintage silk.
-```
 
-```text
 ### price ceiling respected
 - Query: `platform sneakers size 8 under $60`
 - selected_item: Platform Sneakers — White Chunky Sole ($48.0, poshmark)
@@ -207,13 +232,13 @@ Pulled this dreamy floral slip from the archives and I'm obsessed with how versa
 
 I reviewed the five criteria against the targets from `criteria.md` and rated each one plainly from the three runs and the actual outputs.
 
-| # | Criterion | Target | Verdict | How I decided |
-| --- | --------- | ------ | ------- | ------------- |
-| 1 | matching query completes | 4 of 5 | MET | All five runs completed the end-to-end loop and produced both an outfit suggestion and a fit card, exceeding the 4-of-5 target. |
-| 2 | impossible query stops early | 5 of 5 | MET | Every impossible query returned no results and stopped before `suggest_outfit`, matching the required 5-of-5 branch behavior. |
-| 3 | state item transfer | 5 of 5 | MET | The selected item in the session matched the item passed through the loop in every run, so the state handoff was consistent. |
-| 4 | fit card mentions selected item | 4 of 5 | MET | Every generated fit card named the selected item or a clear descriptive phrase that clearly anchored the caption to the right listing. |
-| 5 | price ceiling respected | 5 of 5 | MET | Each search respected the max-price cap, and the returned item was always at or below the requested ceiling. |
+| #   | Criterion                       | Target | Verdict | How I decided                                                                                                                          |
+| --- | ------------------------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | matching query completes        | 4 of 5 | MET     | All five runs completed the end-to-end loop and produced both an outfit suggestion and a fit card, exceeding the 4-of-5 target.        |
+| 2   | impossible query stops early    | 5 of 5 | MET     | Every impossible query returned no results and stopped before `suggest_outfit`, matching the required 5-of-5 branch behavior.          |
+| 3   | state item transfer             | 5 of 5 | MET     | The selected item in the session matched the item passed through the loop in every run, so the state handoff was consistent.           |
+| 4   | fit card mentions selected item | 4 of 5 | MET     | Every generated fit card named the selected item or a clear descriptive phrase that clearly anchored the caption to the right listing. |
+| 5   | price ceiling respected         | 5 of 5 | MET     | Each search respected the max-price cap, and the returned item was always at or below the requested ceiling.                           |
 
 **Diagnoses**
 
@@ -265,13 +290,13 @@ I reviewed the five criteria against the targets from `criteria.md` and rated ea
 
 This log was produced by `run_eval.py::main` in `results/run_2026-10-05_0232_after.md`.
 
-| Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
-| --------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
-| 1. matching query completes | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 2. impossible query stops early | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 3. state item transfer | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 4. fit card mentions selected item | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
-| 5. price ceiling respected | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET |
+| Criterion                          | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
+| ---------------------------------- | ------ | ----- | ----- | ----- | ----- | ----- | ------- |
+| 1. matching query completes        | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 2. impossible query stops early    | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 3. state item transfer             | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 4. fit card mentions selected item | 4 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
+| 5. price ceiling respected         | 5 of 5 | PASS  | PASS  | PASS  | PASS  | PASS  | MET     |
 
 **Did it help, and how do I know:** It did not change the pass/fail verdicts because the original system already met every criterion. The evidence is that the after-run table still produced five PASSes in every row, and the improvement was a prompt tightening rather than a scoring change. It made the item naming more explicit, but the measurable outcomes were unchanged.
 
