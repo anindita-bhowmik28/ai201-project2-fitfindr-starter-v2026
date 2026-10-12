@@ -144,35 +144,52 @@ def run_agent(query: str, wardrobe: dict) -> dict:
         try:
             session["outfit_suggestion"] = suggest_outfit(
                 session["selected_item"], wardrobe)
-            trace.step(
-                "suggest_outfit",
-                inputs={
-                    "title": session["selected_item"].get("title"),
-                    "wardrobe_items": len(wardrobe.get("items", [])),
-                },
-                returned=session["outfit_suggestion"],
-            )
-
-            session["fit_card"] = create_fit_card(
-                session["outfit_suggestion"], session["selected_item"])
-            trace.step(
-                "create_fit_card",
-                inputs={
-                    "item": session["selected_item"].get("title"),
-                    "outfit": session["outfit_suggestion"],
-                },
-                returned=session["fit_card"],
-            )
         except ModelUnavailable as exc:
-            session["error"] = str(exc)
+            session["error"] = (
+                f"Outfit generation could not reach the model. {exc} "
+                "Check your internet connection and GEMINI_API_KEY, then try again."
+            )
             trace.step(
-                "ModelUnavailable",
+                "suggest_outfit: model unavailable",
                 inputs={
                     "selected_item": session["selected_item"].get("title")},
                 returned=session["error"],
                 note="stop: model unavailable",
             )
             return session
+        trace.step(
+            "suggest_outfit",
+            inputs={
+                "new_item_title": session["selected_item"].get("title"),
+                "wardrobe_items": len(wardrobe.get("items", [])),
+            },
+            returned=session["outfit_suggestion"],
+        )
+
+        try:
+            session["fit_card"] = create_fit_card(
+                session["outfit_suggestion"], session["selected_item"])
+        except ModelUnavailable as exc:
+            session["error"] = (
+                f"Fit-card generation could not reach the model. {exc} "
+                "Check your internet connection and GEMINI_API_KEY, then try again."
+            )
+            trace.step(
+                "create_fit_card: model unavailable",
+                inputs={
+                    "selected_item": session["selected_item"].get("title")},
+                returned=session["error"],
+                note="stop: model unavailable",
+            )
+            return session
+        trace.step(
+            "create_fit_card",
+            inputs={
+                "item": session["selected_item"].get("title"),
+                "outfit": session["outfit_suggestion"],
+            },
+            returned=session["fit_card"],
+        )
 
         return session
 

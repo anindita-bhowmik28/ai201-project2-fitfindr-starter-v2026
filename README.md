@@ -249,34 +249,69 @@ I reviewed the five criteria against the targets from `criteria.md` and rated ea
 
 ## Loop Trace
 
-**Happy path**
+This trace was produced by `agent.py::run_agent` through
+`python app.py ask 'vintage graphic tee under $30, size M' --trace`.
 
 ```text
-[1] search_listings
+[1] new_session
+      in:  dict with keys: query
+      out: dict with keys: parsed
+[2] parse_query
+      in:  dict with keys: query
+      out: dict with keys: description, size, max_price
+[3] search_listings (via MCP)
       in:  dict with keys: description, size, max_price
-      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
-[2] select first result
-      in:  dict with keys: result_count
-      out: Y2K Baby Tee — Butterfly Print ($None, None)
-[3] suggest_outfit
-      in:  dict with keys: item
+      out: 8 items: Y2K Baby Tee — Butterfly Print, Mesh Long-Sleeve Top — Black, 90s Silk Slip Dress — Floral, Midi Length … +5 more
+[4] selected_item
+      in:  dict with keys: first_result
+      out: Y2K Baby Tee — Butterfly Print ($18.0, depop)
+[5] suggest_outfit
+      in:  dict with keys: new_item_title, wardrobe_items
       out: **Outfit 1: Casual Y2K Streetwear** Pair the butterfly baby tee with the baggy straight-leg dark wash jeans an…
-[4] create_fit_card
-      in:  dict with keys: item
-      out: Nothing beats the pastel butterfly print on this little Y2K baby tee. Styled it two ways because I couldn't de…
+[6] create_fit_card
+      in:  dict with keys: item, outfit
+      out: Scored this cute little pink and purple butterfly baby tee for just $18 on Depop and honestly haven't taken it…
 ```
 
-**Empty search**
+The MCP move changed the call in `agent.py::run_agent` from a local Python
+function call to `mcp_client.call_tool("search_listings", ...)`. The return
+shape stayed a native list of listing dictionaries, so the branch and the two
+downstream tools behaved the same.
+
+### Failure modes triggered on purpose
+
+- **Empty search:** `designer ballgown size XXS under $5` stopped before
+  `suggest_outfit` and returned: “No listings match your description, size,
+  and budget. Try a different item, a size that exists in the data, or a
+  higher price ceiling.”
+- **Empty wardrobe:** `vintage graphic tee under $30, size M` with
+  `--empty-wardrobe` returned two general styling ideas, including suggested
+  bottoms, shoes, and a layering option. It completed rather than crashing or
+  returning an empty string.
+- **Model unavailable:** A new uncached query was run with a deliberately
+  invalid API key. It stopped at `suggest_outfit` and returned: “Outfit
+  generation could not reach the model. The model rejected your API key.
+  Check GEMINI_API_KEY in your .env file, or create a fresh key at
+  aistudio.google.com. Check your internet connection and GEMINI_API_KEY, then
+  try again.” The real key was not modified.
+
+The empty-search trace showed the branch and early stop:
 
 ```text
-[1] search_listings
+[1] new_session
+      in:  dict with keys: query
+      out: dict with keys: parsed
+[2] parse_query
+      in:  dict with keys: query
+      out: dict with keys: description, size, max_price
+[3] search_listings (via MCP)
       in:  dict with keys: description, size, max_price
       out: [] (empty)
-[2] empty search branch
-      →    stopping because no matching listings were found
+[4] branch: empty-search
+      in:  dict with keys: parsed
+      out: No listings match your description, size, and budget. Try a different item, a size that exists in the data, or…
+      →    stop: empty results
 ```
-
-**On the MCP move:** The app does not yet rewire `search_listings` onto MCP in this version; the trace is still showing the local tool path, and the branch logic is visible in the trace exactly where it should be. The empty-search path stops before the second tool as required.
 
 ---
 
