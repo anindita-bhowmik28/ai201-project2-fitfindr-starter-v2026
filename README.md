@@ -225,20 +225,25 @@ search_results: 1; every result price was at or below $60
 
 ## Verdicts and Diagnoses
 
-I reviewed the five criteria against the targets from `criteria.md` and rated each one plainly from the three runs and the actual outputs.
+I applied the unchanged targets in `criteria.md` to the five tries in
+`results/run_2026-10-12_0145_part2-before.md`.
 
 | #   | Criterion                       | Target | Verdict | How I decided                                                                                                                          |
 | --- | ------------------------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | matching query completes        | 4 of 5 | MET     | All five runs completed the end-to-end loop and produced both an outfit suggestion and a fit card, exceeding the 4-of-5 target.        |
-| 2   | impossible query stops early    | 5 of 5 | MET     | Every impossible query returned no results and stopped before `suggest_outfit`, matching the required 5-of-5 branch behavior.          |
-| 3   | state item transfer             | 5 of 5 | MET     | The selected item in the session matched the item passed through the loop in every run, so the state handoff was consistent.           |
-| 4   | fit card mentions selected item | 4 of 5 | MET     | Every generated fit card named the selected item or a clear descriptive phrase that clearly anchored the caption to the right listing. |
-| 5   | price ceiling respected         | 5 of 5 | MET     | Each search respected the max-price cap, and the returned item was always at or below the requested ceiling.                           |
+| 1   | matching query completes        | 4 of 5 | MET (5/5) | All five runs passed through MCP search, outfit generation, and fit-card generation without stopping early. |
+| 2   | impossible query stops early    | 5 of 5 | MET (5/5) | All five searches returned `[]`; each trace ended at `branch: empty-search`, before `suggest_outfit`. |
+| 3   | state item transfer             | 5 of 5 | MET (5/5) | In all five traces, selected item ID `lst_004` was also the `new_item_id` entering `suggest_outfit`. |
+| 4   | fit card mentions selected item | 4 of 5 | MET (5/5) | All five captions called the item a floral silk slip dress or an equivalent recognizable description. |
+| 5   | price ceiling respected         | 5 of 5 | MET (5/5) | All five MCP searches returned one $48 listing under the requested $60 ceiling and no over-budget result. |
 
-**Diagnoses**
-
-- No miss criteria required a repair. The implementation held steady against every target, so there were no broken measurements to revise.
-- The one improvement I made later was not a fix for a missed criterion; it was a tightening of the fit-card prompt so it would more explicitly include the item identity, price, and platform in a more reliable way.
+**Diagnosis:** No criterion missed, so there is no failed tool or loop step to
+diagnose. The deterministic checks—empty-result branching, session ID transfer,
+and price filtering—were appropriately strict at 5 of 5. Criterion 4 was the
+most generous because “recognizable description” requires judgment; I would
+tighten a future version to require the exact title or a deterministic title
+check. I did not revise it after seeing the results because the original
+criterion remains measurable and the instructions say not to move a valid
+target after testing.
 
 ---
 
