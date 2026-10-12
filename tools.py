@@ -145,7 +145,8 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
         f"Write a 2-sentence caption for a thrifted outfit post. "
         f"Item: {item_title}. Price: ${item_price}. Platform: {item_platform}. Colors: {item_colors}. "
         f"Outfit: {outfit}. "
-        "The caption must explicitly name the item or a clear description of it, mention its price and platform, and keep the tone casual and real. "
+        f"The caption must include the exact item title verbatim: \"{item_title}\". "
+        "It must also mention the price and platform while keeping the tone casual and real. "
         "Do not sound like a catalog product description."
     )
     return generate(prompt, system="You are a fashion caption writer creating authentic social post captions.", cache=True)
