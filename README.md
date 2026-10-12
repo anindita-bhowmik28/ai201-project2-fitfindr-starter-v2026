@@ -173,6 +173,12 @@ low-key win I was looking for.
 - _What came back:_ It returned a stricter prompt design that required those details and explicitly avoided catalog-like language.
 - _What I changed:_ I updated the fit-card prompt to require the item identity, price, and platform in the caption so the content was explicitly anchored to the selected listing.
 
+**Part 2 moment**
+
+- _What I asked for:_ I asked an AI assistant to test whether criterion 3 could be scored using only the trace as written.
+- _What came back:_ It identified that the trace showed input key names but not the selected and received item IDs, so the state criterion was not observable from the evidence.
+- _What I changed:_ I kept the agent behavior unchanged and made the trace print concrete values. The before and after logs now show `lst_004` both when the item is selected and when it enters `suggest_outfit`.
+
 ---
 
 ## Run Log — Before
@@ -351,15 +357,30 @@ because `lst_004` had already reached `suggest_outfit` correctly.
 
 ## What's Still Broken
 
-No criterion is still missed after the improvement run. The system is meeting the targets as written, and the remaining issue is not a failing test but a product-quality concern: the fit-card wording is still model-generated and therefore varies a little between runs even when the criterion passes.
+No acceptance criterion is still missed. The remaining operational limitation is
+model availability: one after-run request timed out while creating a fit card.
+The agent now stops within 30 seconds and tells the user to check the connection
+and key, but it does not automatically retry the failed tool call.
 
-If I were to tighten the system further, I would make the fit-card criterion more specific about requiring the exact item title or a very clear item descriptor, because that is the most likely place where variability could still drift away from the user’s mental model.
+I would add one bounded retry for transient model timeouts, then measure it with
+the same five-try process. I stopped here because this unit permits one measured
+improvement, and that improvement was the exact-title prompt change; adding a
+retry would be a second system improvement outside the required scope.
+
+The MCP move itself did not change search results. It changed
+`agent.py::run_agent` from a direct `search_listings` call to
+`mcp_client.call_tool`, and the client unwraps the MCP response back into the
+same native list used by the existing empty-result branch.
 
 ---
 
 ## What I'd Do Differently
 
-I would write criterion 4 more tightly in the next unit by requiring the fit card to include either the exact selected title or a very clear descriptor of the selected item, not just any mention of a thrifted garment. That would better reflect what a user actually wants from a caption: a caption that unmistakably points to the item they just bought.
+I would write criterion 4 more tightly before testing by requiring the exact
+selected title rather than a “recognizable description.” The additional
+before/after measurement showed why: both runs met the original criterion, but
+exact-title inclusion changed from 0 of 5 to 5 of 5 and revealed the prompt
+improvement much more clearly.
 
 ---
 
